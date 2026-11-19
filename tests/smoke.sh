@@ -26,6 +26,7 @@ printf 'stand-in\n' > secrets/oidc_client_secret
 cat > hub/config.d/smoke.py <<'EOF'
 # Smoke test only: an admin without Keycloak.
 c.Authenticator.admin_users = {"smoke"}
+c.DockerSpawner.debug = True
 EOF
 
 ./adm_01_build.sh

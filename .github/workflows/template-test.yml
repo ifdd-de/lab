@@ -128,9 +128,12 @@ jobs:
         if: failure()
         working-directory: ${{ env.INSTANCE }}
         run: |
-          docker compose -f docker-compose-production.yml ps -a || true
-          docker compose -f docker-compose-production.yml logs --tail 200 || true
-          docker compose -f docker-compose-production.yml exec -T dind docker ps -a 2>/dev/null || docker ps -a
-          for c in $(docker compose -f docker-compose-production.yml exec -T dind docker ps -aq 2>/dev/null); do
-            docker compose -f docker-compose-production.yml exec -T dind docker logs --tail 100 "$c" || true
-          done
+          C="docker compose -f docker-compose-production.yml"
+          $C ps -a || true
+          echo "--- hub (without the polling of the smoke test)"
+          $C logs hub | grep -v "auth_state found\|stale auth info\|200 GET" | tail -150 || true
+          echo "--- containers and events of the Docker daemon of the user servers"
+          if $C exec -T dind true 2>/dev/null; then D="$C exec -T dind docker"; else D=docker; fi
+          $D ps -a || true
+          $D events --since 15m --until 0s --filter type=container || true
+          for c in $($D ps -aq); do $D logs --tail 100 "$c" || true; done
