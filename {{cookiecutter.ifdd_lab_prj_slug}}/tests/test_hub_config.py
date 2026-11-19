@@ -89,6 +89,7 @@ def test_server_token_reads_only_the_own_auth_state(config):
 def test_spawner(config):
     s = config.DockerSpawner
     assert s.allowed_images == {"default": "ifdd-lab-default:local", "gis": "ifdd-lab-gis:local"}
+    assert s.image == "ifdd-lab-default:local"      # not the upstream default singleuser image
     assert s.pull_policy == "never"
     assert s.remove is True
     assert s.volumes == {"ifdd-lab-home-{username}": "/home/jovyan"}

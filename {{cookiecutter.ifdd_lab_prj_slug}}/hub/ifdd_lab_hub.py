@@ -175,7 +175,11 @@ def configure(c):
 
     c.JupyterHub.spawner_class = LabSpawner
     s = c.DockerSpawner
-    s.allowed_images = images()
+    offered = images()
+    s.allowed_images = offered
+    # The first image is the default: DockerSpawner uses it when there is no
+    # choice (one image, or a start through the API without options).
+    s.image = next(iter(offered.values()))
     s.pull_policy = "never"                       # local images only (adm_01_build.sh)
     s.remove = True                               # the home volume stays
     s.prefix = slug
