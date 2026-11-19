@@ -27,6 +27,7 @@ cat > hub/config.d/smoke.py <<'EOF'
 # Smoke test only: an admin without Keycloak.
 c.Authenticator.admin_users = {"smoke"}
 c.DockerSpawner.debug = True
+c.Spawner.http_timeout = 90
 EOF
 
 ./adm_01_build.sh
@@ -41,7 +42,29 @@ else
     in_user() { docker exec -i "$SLUG-$USER_NAME" "$@"; }
 fi
 
-api start "$USER_NAME"
+diagnose() {
+    echo "--- diagnosis: the user container, its port and the way back to the hub"
+    if [ "$DIND" = y ]; then D=("${COMPOSE[@]}" exec -T dind docker); else D=(docker); fi
+    "${D[@]}" ps -a || true
+    "${D[@]}" port "$SLUG-$USER_NAME" || true
+    "${D[@]}" logs --tail 60 "$SLUG-$USER_NAME" 2>&1 || true
+    in_user getent hosts "$SLUG-hub" || echo "no name $SLUG-hub in the user container"
+    in_user python -c "import urllib.request as u; print(u.urlopen('http://$SLUG-hub:8081/hub/api', timeout=5).status)" \
+        || echo "hub API not reachable from the user container"
+    port=$("${D[@]}" port "$SLUG-$USER_NAME" 8888/tcp 2>/dev/null | head -1 | sed 's/.*://')
+    if [ -n "$port" ] && [ "$DIND" = y ]; then
+        "${COMPOSE[@]}" exec -T dind wget -q -O- -T 5 "http://127.0.0.1:$port/user/$USER_NAME/api" \
+            || echo "server not reachable inside the daemon on port $port"
+        "${COMPOSE[@]}" exec -T hub python3 -c "import urllib.request as u; print(u.urlopen('http://$SLUG-dind:$port/user/$USER_NAME/api', timeout=5).status)" \
+            || echo "server not reachable from the hub at $SLUG-dind:$port"
+    fi
+}
+
+api start "$USER_NAME" &
+starter=$!
+sleep 25
+if kill -0 "$starter" 2>/dev/null; then diagnose; fi
+wait "$starter"
 
 echo "--- runs as jovyan, not root"
 test "$(in_user id -u)" = 1000
