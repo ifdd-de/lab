@@ -103,8 +103,8 @@ services:
       IFDD_BE_URL: "{{ cookiecutter.ifdd_be_url }}"
 {%- if dind %}
       DOCKER_HOST: "unix:///dind/docker.sock"
-      # Network inside the Docker-in-Docker daemon (adm_02_run.sh creates it).
-      IFDD_LAB_SPAWN_NETWORK: "lab"
+      # The user servers share the network of the daemon (see hub/ifdd_lab_hub.py).
+      IFDD_LAB_SPAWN_NETWORK: "host"
       IFDD_LAB_DIND_HOST: "{{ slug }}-dind"
 {%- else %}
       IFDD_LAB_SPAWN_NETWORK: "{{ cookiecutter.ifdd_lab_network }}"

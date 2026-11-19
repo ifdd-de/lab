@@ -49,7 +49,7 @@ ENV = {
     "IFDD_LAB_CPU_LIMIT": "1.5",
     "IFDD_LAB_IDLE_TIMEOUT": "3600",
     "IFDD_BE_URL": "https://rest.example.org",
-    "IFDD_LAB_SPAWN_NETWORK": "lab",
+    "IFDD_LAB_SPAWN_NETWORK": "host",
     "IFDD_LAB_DIND_HOST": "ifdd-lab-dind",
 }
 
@@ -93,7 +93,8 @@ def test_spawner(config):
     assert s.pull_policy == "never"
     assert s.remove is True
     assert s.volumes == {"ifdd-lab-home-{username}": "/home/jovyan"}
-    assert s.network_name == "lab" and s.use_internal_ip is False and s.host_ip == "0.0.0.0"
+    assert s.network_name == "host" and s.use_internal_ip is False
+    assert s.extra_host_config == {"cap_drop": ["NET_RAW"], "security_opt": ["no-new-privileges:true"]}
     assert s.environment == {"IFDD_BE_URL": "https://rest.example.org",
                              "IFDD_OIDC_REALM": "https://id.example.org/realms/ifdd"}
     assert config.JupyterHub.spawner_class is ifdd_lab_hub.LabSpawner
@@ -112,6 +113,16 @@ def test_socket_mode_uses_the_internal_ip(monkeypatch, tmp_path):
     ifdd_lab_hub.configure(c)
     assert c.DockerSpawner.use_internal_ip is True
     assert c.DockerSpawner.network_name == "lab-net"
+
+
+def test_dind_servers_are_reached_through_the_daemon(config):
+    """dind: the servers share the daemon's network; the hub reaches each at
+    IFDD_LAB_DIND_HOST and its own port, without asking Docker."""
+    spawner = ifdd_lab_hub.LabSpawner.__new__(ifdd_lab_hub.LabSpawner)
+    spawner.port = 31234
+    assert run(spawner.get_ip_and_port()) == ("ifdd-lab-dind", 31234)
+    low, high = ifdd_lab_hub.PORTS
+    assert 1024 < low < high <= 65535
 
 
 def test_idle_culler(config):

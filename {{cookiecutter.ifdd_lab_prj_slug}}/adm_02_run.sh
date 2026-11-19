@@ -31,10 +31,6 @@ for image in "${IMAGES[@]}"; do
     echo "Loading $image into the Docker-in-Docker daemon"
     docker save "$image" | "${COMPOSE[@]}" exec -T dind docker load
 done
-# The network of the user servers inside the daemon: a user-defined bridge,
-# so that the daemon's resolver answers the names of the lab network.
-"${COMPOSE[@]}" exec -T dind docker network inspect lab >/dev/null 2>&1 \
-    || "${COMPOSE[@]}" exec -T dind docker network create lab >/dev/null
 {%- endif %}
 
 "${COMPOSE[@]}" up -d --wait --wait-timeout 300

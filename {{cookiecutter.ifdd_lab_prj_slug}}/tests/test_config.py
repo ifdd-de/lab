@@ -71,7 +71,7 @@ def test_docker_access():
         assert dind["command"] == ["dockerd", "--host=unix:///dind/docker.sock"], "DinD must not listen on TCP"
         assert "dind-socket:/dind" in hub["volumes"]
         assert not any("docker.sock:" in v for v in hub["volumes"]), "DinD mode must not mount the host socket"
-        assert hub["environment"]["IFDD_LAB_SPAWN_NETWORK"] == "lab"
+        assert hub["environment"]["IFDD_LAB_SPAWN_NETWORK"] == "host"
         assert hub["environment"]["IFDD_LAB_DIND_HOST"] in dind["networks"]["lab"]["aliases"]
         assert (ROOT / "dind" / "Dockerfile").exists()
     else:

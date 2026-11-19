@@ -6,8 +6,8 @@
 # Builds and starts the instance without Keycloak: a hub admin "smoke" from
 # hub/config.d/ gets an API token from `jupyterhub token`, starts a server
 # through the hub API, and the checks run inside the user container:
-# packages and helper, Git panel only with internet access, PDF through
-# LaTeX, internet access as configured, the hub API reachable with the
+# no raw sockets, packages and helper, Git panel only with internet
+# access, PDF through LaTeX, internet access as configured, the hub API reachable with the
 # server's token, the home kept across a restart, no root.
 set -euo pipefail
 HERE=$(cd "$(dirname "$0")" && pwd)
@@ -68,6 +68,11 @@ wait "$starter"
 
 echo "--- runs as jovyan, not root"
 test "$(in_user id -u)" = 1000
+
+echo "--- no raw sockets"
+if in_user python -c "import socket; socket.socket(socket.AF_PACKET, socket.SOCK_RAW)" 2>/dev/null; then
+    echo "raw socket allowed" >&2; exit 1
+fi
 
 echo "--- packages and helper"
 in_user python -c "import ifdd_lab, papermill, pandas, requests, sqlalchemy; print('ok')"

@@ -122,6 +122,13 @@ delegation to ifdd-be; they need the whole installation (`ifdd-de/meta`).
   servers run as `jovyan` without published ports.
 - Code in a user server can read the tokens of its own user (that is the
   delegation). It cannot read those of other users.
+- With `dind` the user servers share the network namespace of the
+  Docker-in-Docker daemon, like the task containers of `ifdd-de/wf`: a
+  user-defined network inside the daemon did not resolve the names of the
+  lab network (smoke test with `docker:29.9.2-dind`). Each server listens on
+  its own port behind the hub's login; `NET_RAW` is dropped and
+  `no-new-privileges` set for every user server, so no server can read the
+  traffic of another.
 - With `ifdd_lab_internet=n` the user servers reach only the services behind
   the proxy. Downloads through the browser remain possible.
 

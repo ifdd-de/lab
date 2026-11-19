@@ -61,3 +61,14 @@ Docker-Daemon des Hosts, also root auf dem Host.
 {%- endif %}
 Der Hub läuft in seinem Container als root; die Benutzer-Server laufen als
 Benutzer `jovyan` (UID 1000) ohne veröffentlichte Ports.
+
+{% if dind -%}
+Die Benutzer-Server laufen im Docker-in-Docker-Daemon mit dessen Netz, wie
+die Task-Container von `ifdd-de/wf`: Sie teilen einen Netz-Namensraum, jeder
+lauscht auf einem eigenen Port, geschützt durch die Anmeldung am Hub. Sie
+haben keine Raw-Sockets (`NET_RAW` entzogen) und können keine Rechte
+erlangen, sodass ein Server den Verkehr eines anderen nicht lesen kann.
+{%- else -%}
+Die Benutzer-Server haben keine Raw-Sockets (`NET_RAW` entzogen) und können
+keine Rechte erlangen.
+{%- endif %}

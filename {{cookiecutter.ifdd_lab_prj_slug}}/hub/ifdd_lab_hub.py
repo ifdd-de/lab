@@ -19,6 +19,7 @@ with the rights of the person who is logged in.
 import base64
 import json
 import os
+import random
 import sys
 import time
 
@@ -85,21 +86,36 @@ async def refresh_user_hook(authenticator, user, auth_state):
         return False
 
 
+# Ports of the user servers in the network namespace of the Docker-in-Docker
+# daemon, which they share (dind mode).
+PORTS = (30000, 59999)
+
+
 class LabSpawner(DockerSpawner):
     """DockerSpawner with the two network set-ups of the template.
 
-    dind: the user containers run in the Docker-in-Docker daemon and publish
-    their port there; the hub reaches them at IFDD_LAB_DIND_HOST:<port>.
+    dind: the user containers run in the Docker-in-Docker daemon with its
+    network ("host" there), like the task containers of ifdd-de/wf: they
+    resolve the names of the lab network through the daemon's resolver and
+    reach the hub and the proxy. A user-defined network inside the daemon
+    does not resolve those names (smoke test, docker:29.9.2-dind). Each
+    server listens on a port of its own; the hub reaches it at
+    IFDD_LAB_DIND_HOST:<port>.
     socket: the user containers run on the host's daemon in the lab network;
     with internet access they also join IFDD_LAB_EGRESS_NETWORK.
     """
 
+    def _dind_host(self):
+        return os.environ.get("IFDD_LAB_DIND_HOST", "")
+
     async def get_ip_and_port(self):
-        ip, port = await super().get_ip_and_port()
-        dind_host = os.environ.get("IFDD_LAB_DIND_HOST", "")
-        return (dind_host or ip), port
+        if self._dind_host():
+            return self._dind_host(), self.port
+        return await super().get_ip_and_port()
 
     async def start(self):
+        if self._dind_host():
+            self.port = random.randint(*PORTS)
         result = await super().start()
         egress = os.environ.get("IFDD_LAB_EGRESS_NETWORK", "")
         if egress:
@@ -185,13 +201,11 @@ def configure(c):
     s.prefix = slug
     s.volumes = {f"{slug}-home-{{username}}": HOME}
     s.notebook_dir = HOME
-    s.network_name = env("IFDD_LAB_SPAWN_NETWORK")
-    if dind_host:
-        # Port published in the Docker-in-Docker daemon, reached through it.
-        s.use_internal_ip = False
-        s.host_ip = "0.0.0.0"
-    else:
-        s.use_internal_ip = True
+    s.network_name = env("IFDD_LAB_SPAWN_NETWORK")       # "host" in dind mode
+    s.use_internal_ip = not dind_host
+    # No raw sockets (no sniffing or spoofing in a shared network), no gain
+    # of privileges.
+    s.extra_host_config = {"cap_drop": ["NET_RAW"], "security_opt": ["no-new-privileges:true"]}
     s.mem_limit = env("IFDD_LAB_MEM_LIMIT")
     s.cpu_limit = float(env("IFDD_LAB_CPU_LIMIT"))
     s.environment = {

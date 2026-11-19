@@ -58,3 +58,14 @@ daemon, which is root on the host.
 {%- endif %}
 The hub runs as root in its container; the user servers run as the user
 `jovyan` (UID 1000) without published ports.
+
+{% if dind -%}
+The user servers run in the Docker-in-Docker daemon with its network, like
+the task containers of `ifdd-de/wf`: they share one network namespace, each
+listening on a port of its own, protected by the login of the hub. They have
+no raw sockets (`NET_RAW` dropped) and cannot gain privileges, so one server
+cannot read the traffic of another.
+{%- else -%}
+The user servers have no raw sockets (`NET_RAW` dropped) and cannot gain
+privileges.
+{%- endif %}
