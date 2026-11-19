@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+
+      - name: Generated files are not committed; create stand-ins
+        run: |
+          python3 - <<'PY'
+          import os, re, secrets
+          from pathlib import Path
+          def gen(m):
+              kind, n = m.group(1), int(m.group(2))
+              if kind == "chars":
+                  return "Aa1" + secrets.token_hex(n)[: n - 3]
+              return os.urandom(n).hex()
+          pat = re.compile(r"<<generate:(chars|base64|hex):(\d+)(?::[aA0-]+)?>>")
+          Path(".env").write_text(pat.sub(gen, Path("dotenv.dist").read_text()))
+          Path("secrets/oidc_client_secret").write_text("stand-in\n")
+          PY
+
+      - name: Static checks
+        run: |
+          pip install -r tests/requirements.txt
+          pytest -q tests
+
+      - name: Compose file is valid
+        run: docker compose -f docker-compose-production.yml config --quiet

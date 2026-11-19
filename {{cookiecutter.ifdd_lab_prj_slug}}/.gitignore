@@ -1,0 +1,18 @@
+# Generated per instance, contain secrets.
+.env
+secrets/*
+!secrets/README.md
+
+# Internal CA certificates, copied in by ifdd-meta or by hand.
+certs/*
+!certs/README.md
+
+# Local additions to the hub configuration (see hub/config.d/README.md).
+hub/config.d/*
+!hub/config.d/README.md
+
+__pycache__/
+.pytest_cache/
+
+# Local builds of the documentation (docs/en, docs/de)
+docs/_build/

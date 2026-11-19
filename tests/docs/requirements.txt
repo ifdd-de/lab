@@ -1,0 +1,4 @@
+# Versions for tests/check_docs.py (checked together on 2026-11-14).
+sphinx==9.2.0
+myst-parser==5.1.0
+sphinxcontrib-plantuml==0.31

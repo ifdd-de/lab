@@ -1,0 +1,7 @@
+# Python packages of the hub image. Pinned; ifdd_lab_hub.py relies on these
+# versions (tests/test_hub_config.py).
+jupyterhub==6.2.0
+oauthenticator==17.5.0
+dockerspawner==14.0.0
+jupyterhub-idle-culler==2.0.0
+psycopg[binary]==3.3.9

@@ -1,0 +1,8 @@
+# Packages of the image "default". Pinned. The same as the papermill runner of
+# ifdd-de/wf (runners/papermill/requirements.txt, 26.11.2) without ipykernel,
+# which the base image brings. Add what your notebooks import; rebuild with
+# ./adm_01_build.sh and restart the servers.
+papermill==2.7.0
+pandas==3.1.0
+requests==2.34.2
+SQLAlchemy==2.1.6

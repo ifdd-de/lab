@@ -1,0 +1,5 @@
+pytest
+pyyaml
+requests==2.34.2
+# tests/test_hub_config.py: the packages of the hub image
+-r ../hub/requirements.txt

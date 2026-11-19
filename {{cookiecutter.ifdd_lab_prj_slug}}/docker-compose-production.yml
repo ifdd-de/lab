@@ -1,0 +1,190 @@
+{%- set dind = cookiecutter.ifdd_lab_docker_mode == "dind" -%}
+{%- set internet = cookiecutter.ifdd_lab_internet == "y" -%}
+{%- set slug = cookiecutter.ifdd_lab_prj_slug -%}
+{%- set images = cookiecutter.ifdd_lab_images.split(",") -%}
+# Production: JupyterHub behind the IFDD proxy (ifdd-de/proxy) at
+# https://${IFDD_LAB_HOST}/, login through Keycloak (client
+# {{ cookiecutter.ifdd_keycloak_lab_client_id }}, group {{ cookiecutter.ifdd_keycloak_lab_users_group }}).
+#
+# Networks: the hub{% if dind %} and the Docker-in-Docker daemon{% endif %} sit in the network
+# {{ cookiecutter.ifdd_lab_network }}, which is internal (no route outside) and which the
+# proxy joins with its host aliases. The user servers reach the other
+# services only through the proxy.
+{%- if internet %} With internet access (ifdd_lab_internet=y)
+# the user servers also get the network {{ slug }}-egress.
+{%- else %} Without internet access (ifdd_lab_internet=n)
+# that is all they reach.
+{%- endif %}
+#
+# Build with ./adm_01_build.sh, start with ./adm_02_run.sh.
+
+services:
+  postgres:
+    image: "{{ cookiecutter.ifdd_lab_postgres_image }}"
+    environment:
+      POSTGRES_DB: jupyterhub
+      POSTGRES_USER: jupyterhub
+      POSTGRES_PASSWORD: "${IFDD_LAB_DB_PASSWORD:?set in .env}"
+    volumes:
+      # From PostgreSQL 18 on, the image keeps its data in a versioned
+      # subdirectory of /var/lib/postgresql.
+      - postgres-data:/var/lib/postgresql
+    networks:
+      - db
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -d jupyterhub -U jupyterhub"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    security_opt:
+      - "no-new-privileges:true"
+    restart: always
+{%- if dind %}
+
+  dind:
+    build:
+      context: .
+      dockerfile: dind/Dockerfile
+      args:
+        DIND_IMAGE: "{{ cookiecutter.ifdd_lab_dind_image }}"
+    image: "{{ slug }}-dind:local"
+    # Required by Docker-in-Docker. This container is root on the host's
+    # kernel; it is what keeps the host's own Docker daemon out of reach.
+    privileged: true
+    # Only the unix socket in the shared volume; without arguments the
+    # upstream entrypoint would also open TCP port 2375.
+    command: ["dockerd", "--host=unix:///dind/docker.sock"]
+    environment:
+      DOCKER_HOST: "unix:///dind/docker.sock"
+    volumes:
+      - dind-socket:/dind
+      # Images, containers and the home volumes of the users.
+      - dind-data:/var/lib/docker
+    networks:
+      lab:
+        aliases:
+          - "{{ slug }}-dind"
+{%- if internet %}
+      egress:
+{%- endif %}
+    healthcheck:
+      test: ["CMD", "docker", "info", "--format", "{{ '{{' }}.ServerVersion{{ '}}' }}"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    restart: always
+{%- endif %}
+
+  hub:
+    build:
+      context: .
+      dockerfile: hub/Dockerfile
+      args:
+        BASE_IMAGE: "{{ cookiecutter.ifdd_lab_hub_base_image }}"
+    image: "{{ slug }}-hub:local"
+    # Root: needed for the Docker socket (both modes); see README.
+    user: "root"
+    environment:
+      IFDD_LAB_SLUG: "{{ slug }}"
+      IFDD_LAB_HOST: "${IFDD_LAB_HOST:?set in .env}"
+      IFDD_LAB_HUB_HOST: "{{ slug }}-hub"
+      IFDD_LAB_DB_PASSWORD: "${IFDD_LAB_DB_PASSWORD:?set in .env}"
+      JUPYTERHUB_CRYPT_KEY: "${JUPYTERHUB_CRYPT_KEY:?set in .env}"
+      JPY_COOKIE_SECRET: "${JPY_COOKIE_SECRET:?set in .env}"
+      IFDD_OIDC_REALM: "{{ cookiecutter.ifdd_oidc_realm }}"
+      IFDD_LAB_CLIENT_ID: "{{ cookiecutter.ifdd_keycloak_lab_client_id }}"
+      IFDD_LAB_CLIENT_SECRET_FILE: "/run/ifdd/oidc_client_secret"
+      IFDD_LAB_USERS_GROUP: "{{ cookiecutter.ifdd_keycloak_lab_users_group }}"
+      IFDD_LAB_ADMINS_GROUP: "{{ cookiecutter.ifdd_keycloak_lab_admins_group }}"
+      IFDD_LAB_IMAGES: "{% for name in images %}{{ name }}={{ slug }}-{{ name }}:local{% if not loop.last %},{% endif %}{% endfor %}"
+      IFDD_LAB_MEM_LIMIT: "{{ cookiecutter.ifdd_lab_mem_limit }}"
+      IFDD_LAB_CPU_LIMIT: "{{ cookiecutter.ifdd_lab_cpu_limit }}"
+      IFDD_LAB_IDLE_TIMEOUT: "{{ cookiecutter.ifdd_lab_idle_timeout }}"
+      IFDD_BE_URL: "{{ cookiecutter.ifdd_be_url }}"
+{%- if dind %}
+      DOCKER_HOST: "unix:///dind/docker.sock"
+      # Network inside the Docker-in-Docker daemon (adm_02_run.sh creates it).
+      IFDD_LAB_SPAWN_NETWORK: "lab"
+      IFDD_LAB_DIND_HOST: "{{ slug }}-dind"
+{%- else %}
+      IFDD_LAB_SPAWN_NETWORK: "{{ cookiecutter.ifdd_lab_network }}"
+{%- if internet %}
+      IFDD_LAB_EGRESS_NETWORK: "{{ slug }}-egress"
+{%- endif %}
+{%- endif %}
+    volumes:
+      - "./secrets/oidc_client_secret:/run/ifdd/oidc_client_secret:ro"
+      - "./hub/config.d:/srv/jupyterhub/config.d:ro"
+{%- if dind %}
+      - dind-socket:/dind
+{%- else %}
+      # Full control of the host's Docker daemon = root on the host.
+      - "/var/run/docker.sock:/var/run/docker.sock"
+{%- endif %}
+    networks:
+      db:
+      lab:
+        aliases:
+          - "{{ slug }}-hub"
+{%- if internet and not dind %}
+      # Only so that compose creates the network the user servers join.
+      egress:
+{%- endif %}
+    # No ports: 8000 is reached through the proxy only, the hub API (8081) by
+    # the user servers in the lab network.
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network={{ cookiecutter.ifdd_lab_network }}"
+      - "traefik.http.routers.{{ slug }}.rule=Host(`${IFDD_LAB_HOST}`)"
+      - "traefik.http.routers.{{ slug }}.entrypoints={{ cookiecutter.ifdd_lab_entrypoint }}"
+      - "traefik.http.routers.{{ slug }}.service={{ slug }}"
+      - "traefik.http.services.{{ slug }}.loadbalancer.server.port=8000"
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/hub/health', timeout=4)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    depends_on:
+      postgres:
+        condition: service_healthy
+{%- if dind %}
+      dind:
+        condition: service_healthy
+{%- endif %}
+    restart: always
+{%- for name in images %}
+
+  # Not started by `up`: built by adm_01_build.sh (profile "images").
+  image-{{ name }}:
+    profiles: ["images"]
+    build:
+      context: .
+      dockerfile: images/{{ name }}/Dockerfile
+      args:
+        BASE_IMAGE: "{{ cookiecutter.ifdd_lab_kernel_base_image }}"
+        IMAGE_DIR: "images/{{ name }}"
+        IFDD_LAB_GIT: "{{ cookiecutter.ifdd_lab_internet }}"
+    image: "{{ slug }}-{{ name }}:local"
+{%- endfor %}
+
+volumes:
+  postgres-data:
+{%- if dind %}
+  dind-socket:
+  dind-data:
+{%- endif %}
+
+networks:
+  db:
+    # PostgreSQL only; no route outside.
+    internal: true
+  lab:
+    # Shared with the proxy, created once (internal):
+    #   docker network create --internal {{ cookiecutter.ifdd_lab_network }}
+    name: {{ cookiecutter.ifdd_lab_network }}
+    external: true
+{%- if internet %}
+  egress:
+    name: {{ slug }}-egress
+{%- endif %}
