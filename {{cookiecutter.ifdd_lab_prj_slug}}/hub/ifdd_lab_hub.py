@@ -202,7 +202,10 @@ def configure(c):
     s.volumes = {f"{slug}-home-{{username}}": HOME}
     s.notebook_dir = HOME
     s.network_name = env("IFDD_LAB_SPAWN_NETWORK")       # "host" in dind mode
-    s.use_internal_ip = not dind_host
+    # No published ports: in dind mode get_ip_and_port names the daemon (and
+    # port bindings are invalid with the network "host"), in socket mode the
+    # hub reaches the container in the lab network.
+    s.use_internal_ip = True
     # No raw sockets (no sniffing or spoofing in a shared network), no gain
     # of privileges.
     s.extra_host_config = {"cap_drop": ["NET_RAW"], "security_opt": ["no-new-privileges:true"]}

@@ -93,7 +93,7 @@ def test_spawner(config):
     assert s.pull_policy == "never"
     assert s.remove is True
     assert s.volumes == {"ifdd-lab-home-{username}": "/home/jovyan"}
-    assert s.network_name == "host" and s.use_internal_ip is False
+    assert s.network_name == "host" and s.use_internal_ip is True   # no port bindings
     assert s.extra_host_config == {"cap_drop": ["NET_RAW"], "security_opt": ["no-new-privileges:true"]}
     assert s.environment == {"IFDD_BE_URL": "https://rest.example.org",
                              "IFDD_OIDC_REALM": "https://id.example.org/realms/ifdd"}
