@@ -4,6 +4,9 @@ The version scheme follows the other IFDD templates: `YY.MM.N`.
 
 ## [Unreleased]
 
+- CI: GitHub Actions pinned to commit SHAs (version as comment),
+  `persist-credentials: false` on every checkout; the same in the workflows of
+  the instance.
 - First version: JupyterHub 6.2.0 with DockerSpawner 14.0.0 and
   OAuthenticator 17.5.0 behind the IFDD proxy, one server per user in an own
   Docker-in-Docker daemon or on the host socket, PostgreSQL 18 as hub
