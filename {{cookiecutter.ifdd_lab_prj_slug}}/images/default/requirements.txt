@@ -3,6 +3,6 @@
 # which the base image brings. Add what your notebooks import; rebuild with
 # ./adm_01_build.sh and restart the servers.
 papermill==2.7.0
-pandas==3.1.0
+pandas==3.1.1
 requests==2.34.2
-SQLAlchemy==2.1.6
+SQLAlchemy==2.1.9
