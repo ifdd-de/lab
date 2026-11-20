@@ -1,0 +1,11 @@
+# Build context of all images is the instance root; only these are needed.
+*
+!build/
+!certs/
+!hub/Dockerfile
+!hub/requirements.txt
+!hub/jupyterhub_config.py
+!hub/ifdd_lab_hub.py
+!dind/
+!images/
+!lib/

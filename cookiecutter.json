@@ -1,0 +1,35 @@
+{
+  "ifdd_lab_prj_name": "IFDD Lab",
+  "ifdd_lab_prj_slug": "{{ cookiecutter.ifdd_lab_prj_name|lower|replace(' ', '-') }}",
+  "ifdd_lab_host": "lab",
+  "ifdd_lab_entrypoint": "websecure",
+  "ifdd_lab_internet": [
+    "n",
+    "y"
+  ],
+  "ifdd_lab_docker_mode": [
+    "dind",
+    "socket"
+  ],
+  "ifdd_lab_network": "lab-net",
+  "ifdd_lab_hub_base_image": "node:26-slim",
+  "ifdd_lab_kernel_base_image": "quay.io/jupyter/minimal-notebook:2026-11-16",
+  "ifdd_lab_postgres_image": "postgres:18",
+  "ifdd_lab_dind_image": "docker:29.9.2-dind",
+  "ifdd_lab_images": "default",
+  "ifdd_lab_mem_limit": "2G",
+  "ifdd_lab_cpu_limit": "1",
+  "ifdd_lab_idle_timeout": "3600",
+  "ifdd_keycloak_lab_client_id": "ifdd-lab",
+  "ifdd_keycloak_lab_users_group": "ifdd_lab_users",
+  "ifdd_keycloak_lab_admins_group": "ifdd_lab_admins",
+  "ifdd_oidc_realm": "https://keycloak.example.org/realms/ifdd",
+  "ifdd_be_url": "https://be.example.org",
+  "_copy_without_render": [
+    ".github",
+    "tests",
+    "lib",
+    "examples",
+    "hub/ifdd_lab_hub.py"
+  ]
+}

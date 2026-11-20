@@ -1,0 +1,7 @@
+# Docker-in-Docker with internet access and Git client; two images.
+default_context:
+  ifdd_lab_prj_name: "IFDD Lab Open"
+  ifdd_lab_internet: "y"
+  ifdd_lab_images: "default,gis"
+  ifdd_lab_host: "lab.ci.test"
+  ifdd_lab_network: "lab-open-net"

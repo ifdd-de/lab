@@ -1,0 +1,23 @@
+# Values for docker compose interpolation (the ${...} in the compose file).
+# The compose file hands each container only what it needs, by name.
+#
+# Values written as <<generate:...>> are replaced by random values when the
+# instance is generated (hooks/post_gen_project.py). Their form states the
+# required quality, e.g. <<generate:chars:40:aA0>> = 40 characters with at
+# least one lowercase letter, one uppercase letter and one digit.
+
+# Host name under which the proxy routes to the hub (https://<IFDD_LAB_HOST>/).
+IFDD_LAB_HOST={{ cookiecutter.ifdd_lab_host }}
+
+# PostgreSQL password of the user jupyterhub. Set once: the database keeps
+# the password it was created with; changing it here alone locks the hub out.
+IFDD_LAB_DB_PASSWORD=<<generate:chars:40:aA0>>
+
+# Key of the encrypted auth state (the tokens of the logins), 32 bytes as
+# hex. Changing it makes the stored tokens unreadable: every user logs in
+# again.
+JUPYTERHUB_CRYPT_KEY=<<generate:hex:32>>
+
+# Secret of the hub's login cookies, 32 bytes as hex. Changing it logs every
+# user out.
+JPY_COOKIE_SECRET=<<generate:hex:32>>

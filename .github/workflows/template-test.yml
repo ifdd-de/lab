@@ -1,0 +1,139 @@
+name: Template
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  render:
+    name: Render and check (${{ matrix.fixture }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        fixture: [defaults, internet, socket]
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          path: template
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+
+      - name: Install tooling
+        run: pip install cookiecutter pytest pyyaml
+
+      - name: Render
+        run: |
+          cookiecutter --no-input --config-file template/tests/fixtures/${{ matrix.fixture }}.yaml \
+            --output-dir rendered template
+          INSTANCE=$(find rendered -mindepth 1 -maxdepth 1 -type d | head -1)
+          echo "INSTANCE=$INSTANCE" >> "$GITHUB_ENV"
+
+      - name: The rendered instance must contain no template placeholders
+        run: |
+          if grep -rl "cookiecutter\." "$INSTANCE"; then
+            echo "Unrendered placeholders found" >&2
+            exit 1
+          fi
+
+      - name: Static checks and hub configuration with the pinned packages
+        working-directory: ${{ env.INSTANCE }}
+        run: |
+          pip install -r tests/requirements.txt
+          pytest -q tests
+
+      - name: Documentation (docs/en, docs/de) matches and builds
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q default-jre-headless graphviz
+          pip install -r template/tests/docs/requirements.txt
+          IFDD_PLANTUML_JAR="$(template/tests/docs/get_plantuml.sh)"
+          export IFDD_PLANTUML_JAR
+          python template/tests/check_docs.py "$INSTANCE" --prefix ifdd-lab-
+
+      - name: Scripts parse
+        working-directory: ${{ env.INSTANCE }}
+        run: for s in adm_*.sh build/*.sh; do bash -n "$s"; done
+
+      - name: Compose file is valid
+        working-directory: ${{ env.INSTANCE }}
+        run: |
+          printf 'stand-in\n' > secrets/oidc_client_secret
+          docker compose -f docker-compose-production.yml config --quiet
+
+      - name: The pre-generation hook rejects bad values
+        run: |
+          for bad in "ifdd_lab_internet=yes" "ifdd_lab_images=Default" "ifdd_lab_images=a,a" \
+                      "ifdd_lab_mem_limit=2GB" "ifdd_lab_idle_timeout=60" "ifdd_oidc_realm=https://id/ifdd" \
+                      "ifdd_keycloak_lab_admins_group=ifdd_lab_users"; do
+            if cookiecutter --no-input -f -o bad template "$bad" 2>/dev/null; then echo "accepted: $bad"; exit 1; fi
+          done
+
+  smoke:
+    # Builds the images and starts the instance with the real images, without
+    # Keycloak (tests/smoke.sh): spawn through the hub API, checks inside the
+    # user container.
+    name: Smoke (${{ matrix.fixture }})
+    runs-on: ubuntu-latest
+    needs: render
+    strategy:
+      fail-fast: false
+      matrix:
+        fixture: [defaults, internet, socket]
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          path: template
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+
+      - run: pip install cookiecutter pyyaml
+
+      - name: Free disk space for the images
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          df -h /
+
+      - name: Render
+        run: |
+          cookiecutter --no-input --config-file template/tests/fixtures/${{ matrix.fixture }}.yaml \
+            --output-dir rendered template
+          INSTANCE=$(find rendered -mindepth 1 -maxdepth 1 -type d | head -1)
+          echo "INSTANCE=$INSTANCE" >> "$GITHUB_ENV"
+
+      - name: Build, start, spawn and check
+        run: template/tests/smoke.sh "$INSTANCE"
+
+      - name: Sizes
+        if: always()
+        run: |
+          docker image ls --format '{{.Repository}}:{{.Tag}} {{.Size}}' | grep ':local' || true
+          df -h /
+
+      - name: Logs on failure
+        if: failure()
+        working-directory: ${{ env.INSTANCE }}
+        run: |
+          C="docker compose -f docker-compose-production.yml"
+          $C ps -a || true
+          echo "--- hub (without the polling of the smoke test)"
+          $C logs hub | grep -v "auth_state found\|stale auth info\|200 GET" | tail -150 || true
+          echo "--- containers and events of the Docker daemon of the user servers"
+          if $C exec -T dind true 2>/dev/null; then D="$C exec -T dind docker"; else D=docker; fi
+          $D ps -a || true
+          $D events --since 15m --until 0s --filter type=container || true
+          for c in $($D ps -aq); do $D logs --tail 100 "$c" || true; done

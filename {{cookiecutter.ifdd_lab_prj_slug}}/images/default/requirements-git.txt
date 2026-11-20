@@ -1,0 +1,3 @@
+# Installed only with internet access (ifdd_lab_internet=y): the Git panel of
+# JupyterLab. Without internet access there is no repository to reach.
+jupyterlab-git==0.55.0

@@ -1,0 +1,7 @@
+# Host Docker socket with internet access.
+default_context:
+  ifdd_lab_prj_name: "IFDD Lab Socket"
+  ifdd_lab_docker_mode: "socket"
+  ifdd_lab_internet: "y"
+  ifdd_lab_mem_limit: "1G"
+  ifdd_lab_cpu_limit: "0.5"
