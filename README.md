@@ -35,9 +35,9 @@ the certificates and the local hub configuration out of every later
 | `ifdd_lab_docker_mode` | `dind` | `dind`: own privileged Docker daemon, socket shared by volume, no TCP; `socket`: host's `/var/run/docker.sock` |
 | `ifdd_lab_network` | `lab-net` | internal network of the hub, created once by hand, which the proxy joins (`ifdd_proxy_extra_networks` of `ifdd-de/proxy`) |
 | `ifdd_lab_hub_base_image` | `node:26-slim` | base of the hub image (configurable-http-proxy needs Node.js 22 or later; Python from Debian) |
-| `ifdd_lab_kernel_base_image` | `quay.io/jupyter/minimal-notebook:2026-11-16` | base of the images of the user servers (JupyterLab 4.6.6, JupyterHub 6.2.0, Python 3.13, XeLaTeX) |
+| `ifdd_lab_kernel_base_image` | `quay.io/jupyter/minimal-notebook:2026-11-23` | base of the images of the user servers (JupyterLab 4.6.6, JupyterHub 6.2.0, Python 3.13, XeLaTeX) |
 | `ifdd_lab_postgres_image` | `postgres:18` | hub database |
-| `ifdd_lab_dind_image` | `docker:29.9.2-dind` | DinD image |
+| `ifdd_lab_dind_image` | `docker:29.10.0-dind` | DinD image |
 | `ifdd_lab_images` | `default` | images offered at start, comma-separated; each is a directory `images/<name>/` (the hook copies `default` for new names) |
 | `ifdd_lab_mem_limit`, `ifdd_lab_cpu_limit` | `2G`, `1` | limits per user server |
 | `ifdd_lab_idle_timeout` | `3600` | seconds without activity before the idle culler stops a server (at least 300) |

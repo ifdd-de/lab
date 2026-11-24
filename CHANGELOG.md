@@ -2,6 +2,16 @@
 
 The version scheme follows the other IFDD templates: `YY.MM.N`.
 
+## [26.11.11] - 2026-11-24
+
+- Version aligned across all ifdd-de repositories (26.11.11).
+- Upstream images: `ifdd_lab_kernel_base_image` minimal-notebook
+  2026-11-16 -> 2026-11-23 (still JupyterLab 4.6.6, JupyterHub 6.2.0,
+  Python 3.13 according to the build manifests of docker-stacks),
+  `ifdd_lab_dind_image` 29.9.2 -> 29.10.0 (`-dind`).
+- The packages of the image "default" equal those of the papermill runner of
+  ifdd-de/wf 26.11.11 again (comment in `images/default/requirements.txt`).
+
 ## [26.11.3] - 2026-11-21
 
 - CI: GitHub Actions pinned to commit SHAs (version as comment),
